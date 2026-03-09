@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>YazzStore</title>
+
+<style>
+
+body{
+margin:0;
+font-family:Arial;
+background:#050505;
+color:white;
+}
+
+/* HEADER */
+
+header{
+display:flex;
+justify-content:space-between;
+align-items:center;
+padding:15px;
+background:black;
+box-shadow:0 0 15px cyan;
+}
+
+.logo{
+font-size:24px;
+color:cyan;
+font-weight:bold;
+}
+
+.search{
+padding:8px;
+width:40%;
+border-radius:5px;
+border:none;
+}
+
+/* PRODUK */
+
+.container{
+display:flex;
+flex-wrap:wrap;
+gap:20px;
+justify-content:center;
+padding:20px;
+}
+
+.card{
+width:220px;
+background:#111;
+border-radius:10px;
+padding:10px;
+box-shadow:0 0 10px cyan;
+}
+
+.card img{
+width:100%;
+height:120px;
+object-fit:cover;
+border-radius:6px;
+}
+
+.price{
+color:cyan;
+font-weight:bold;
+}
+
+.rating{
+color:gold;
+font-size:14px;
+}
+
+button{
+border:none;
+padding:6px 10px;
+border-radius:6px;
+margin:3px;
+cursor:pointer;
+}
+
+.buy{background:cyan}
+.cart{background:orange}
+.reviewBtn{background:#8a2be2;color:white}
+
+/* CART */
+
+.cartBox{
+position:fixed;
+right:0;
+top:0;
+width:300px;
+height:100%;
+background:black;
+padding:15px;
+display:none;
+overflow:auto;
+box-shadow:-5px 0 15px cyan;
+}
+
+.cartHeader{
+display:flex;
+justify-content:space-between;
+}
+
+.cartItem{
+border-bottom:1px solid #333;
+padding:8px;
+display:flex;
+justify-content:space-between;
+}
+
+/* ADMIN */
+
+.admin{
+display:none;
+background:black;
+padding:20px;
+border-top:2px solid cyan;
+}
+
+.adminItem{
+border-bottom:1px solid #333;
+padding:8px;
+display:flex;
+justify-content:space-between;
+}
+
+/* REVIEW POPUP */
+
+.reviewBox{
+position:fixed;
+top:50%;
+left:50%;
+transform:translate(-50%,-50%);
+background:#111;
+padding:20px;
+border-radius:10px;
+display:none;
+box-shadow:0 0 10px cyan;
+}
+
+textarea{
+width:100%;
+height:70px;
+}
+
+</style>
+</head>
+
+<body>
+
+<header>
+
+<div class="logo">YazzStore</div>
+
+<input class="search" placeholder="Cari produk..." onkeyup="searchProduct(this.value)">
+
+<div>
+<button onclick="toggleCart()">🛒 (<span id="cartCount">0</span>)</button>
+<button onclick="adminLogin()">Admin</button>
+</div>
+
+</header>
+
+<div class="container" id="products"></div>
+
+<!-- CART -->
+
+<div class="cartBox" id="cartBox">
+
+<div class="cartHeader">
+<h2>Keranjang</h2>
+<button onclick="toggleCart()">❌</button>
+</div>
+
+<div id="cartItems"></div>
+
+<button onclick="checkout()">Checkout WhatsApp</button>
+
+</div>
+
+<!-- REVIEW -->
+
+<div class="reviewBox" id="reviewBox">
+
+<h3>Tulis Review</h3>
+
+<select id="rating">
+<option value="5">⭐⭐⭐⭐⭐</option>
+<option value="4">⭐⭐⭐⭐</option>
+<option value="3">⭐⭐⭐</option>
+<option value="2">⭐⭐</option>
+<option value="1">⭐</option>
+</select>
+
+<textarea id="reviewText" placeholder="Tulis review..."></textarea>
+
+<button onclick="submitReview()">Kirim</button>
+<button onclick="closeReview()">❌</button>
+
+</div>
+
+<!-- ADMIN -->
+
+<div class="admin" id="adminPanel">
+
+<h2>Dashboard Admin</h2>
+
+<input id="pname" placeholder="Nama produk">
+<input id="pprice" placeholder="Harga">
+<input id="pimage" type="file">
+
+<button onclick="addProduct()">Tambah Produk</button>
+
+<h3>Kelola Produk</h3>
+<div id="adminProducts"></div>
+
+<h3>Review Pembeli</h3>
+<div id="adminReviews"></div>
+
+</div>
+
+<script>
+
+let products = JSON.parse(localStorage.getItem("products")) || [
+
+{name:"YouTube Premium",price:25000,image:"https://upload.wikimedia.org/wikipedia/commons/b/b8/YouTube_Logo_2017.svg"},
+{name:"CapCut Pro",price:20000,image:"https://upload.wikimedia.org/wikipedia/commons/4/4e/CapCut_Logo.png"},
+{name:"Bstation Premium",price:15000,image:"https://upload.wikimedia.org/wikipedia/commons/6/6a/Bilibili_Logo.svg"}
+
+]
+
+let cart = JSON.parse(localStorage.getItem("cart")) || []
+let reviews = JSON.parse(localStorage.getItem("reviews")) || []
+
+let currentProduct=""
+
+function save(){
+localStorage.setItem("products",JSON.stringify(products))
+localStorage.setItem("cart",JSON.stringify(cart))
+localStorage.setItem("reviews",JSON.stringify(reviews))
+}
+
+function render(){
+
+document.getElementById("cartCount").innerText=cart.length
+
+let html=""
+
+products.forEach((p,i)=>{
+
+let productReviews = reviews.filter(r=>r.product==p.name)
+
+let rating=0
+
+if(productReviews.length>0){
+
+rating = productReviews.reduce((a,b)=>a+b.rating,0)/productReviews.length
+
+}
+
+html+=`
+
+<div class="card">
+
+<img src="${p.image}">
+
+<h3>${p.name}</h3>
+
+<div class="rating">
+⭐ ${rating.toFixed(1)} (${productReviews.length} review)
+</div>
+
+<div class="price">Rp ${p.price}</div>
+
+<button class="buy" onclick="buy('${p.name}')">Beli</button>
+<button class="cart" onclick="addCart(${i})">Keranjang</button>
+<button class="reviewBtn" onclick="openReview('${p.name}')">Review</button>
+
+</div>
+
+`
+
+})
+
+document.getElementById("products").innerHTML=html
+
+renderCart()
+renderAdminProducts()
+renderAdminReviews()
+
+save()
+
+}
+
+function addCart(i){
+cart.push(products[i])
+render()
+}
+
+function renderCart(){
+
+let html=""
+
+cart.forEach((c,i)=>{
+
+html+=`
+
+<div class="cartItem">
+
+<span>${c.name}</span>
+
+<button onclick="removeCart(${i})">❌</button>
+
+</div>
+
+`
+
+})
+
+document.getElementById("cartItems").innerHTML=html
+
+}
+
+function removeCart(i){
+cart.splice(i,1)
+render()
+}
+
+function toggleCart(){
+
+let box=document.getElementById("cartBox")
+
+box.style.display = box.style.display=="block" ? "none":"block"
+
+}
+
+function buy(name){
+
+let msg=encodeURIComponent("Saya ingin membeli "+name)
+
+window.open("https://wa.me/6280000000000?text="+msg)
+
+}
+
+function checkout(){
+
+let text="Order YazzStore:%0A"
+
+cart.forEach(c=>{
+text+=c.name+"%0A"
+})
+
+window.open("https://wa.me/6280000000000?text="+text)
+
+}
+
+function searchProduct(q){
+
+let cards=document.querySelectorAll(".card")
+
+cards.forEach(c=>{
+c.style.display = c.innerText.toLowerCase().includes(q.toLowerCase()) ? "block":"none"
+})
+
+}
+
+/* REVIEW */
+
+function openReview(name){
+
+currentProduct=name
+
+document.getElementById("reviewBox").style.display="block"
+
+}
+
+function closeReview(){
+
+document.getElementById("reviewBox").style.display="none"
+
+}
+
+function submitReview(){
+
+let rating=parseInt(document.getElementById("rating").value)
+
+let text=document.getElementById("reviewText").value
+
+reviews.push({
+
+product:currentProduct,
+rating:rating,
+text:text
+
+})
+
+closeReview()
+
+render()
+
+}
+
+/* ADMIN */
+
+function adminLogin(){
+
+let pass=prompt("Password Admin")
+
+if(pass=="admin123"){
+document.getElementById("adminPanel").style.display="block"
+}else{
+alert("Password salah")
+}
+
+}
+
+function addProduct(){
+
+let name=document.getElementById("pname").value
+let price=document.getElementById("pprice").value
+let file=document.getElementById("pimage").files[0]
+
+let reader=new FileReader()
+
+reader.onload=function(e){
+
+products.push({
+name:name,
+price:price,
+image:e.target.result
+})
+
+render()
+
+}
+
+reader.readAsDataURL(file)
+
+}
+
+function renderAdminProducts(){
+
+let html=""
+
+products.forEach((p,i)=>{
+
+html+=`
+
+<div class="adminItem">
+
+${p.name}
+
+<button onclick="deleteProduct(${i})">❌</button>
+
+</div>
+
+`
+
+})
+
+document.getElementById("adminProducts").innerHTML=html
+
+}
+
+function deleteProduct(i){
+
+products.splice(i,1)
+
+render()
+
+}
+
+function renderAdminReviews(){
+
+let html=""
+
+reviews.forEach(r=>{
+
+html+=`
+
+<div class="adminItem">
+
+<b>${r.product}</b> ⭐${r.rating}<br>
+${r.text}
+
+</div>
+
+`
+
+})
+
+document.getElementById("adminReviews").innerHTML=html
+
+}
+
+render()
+
+</script>
+
+</body>
+</html>
